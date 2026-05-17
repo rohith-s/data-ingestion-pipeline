@@ -52,7 +52,7 @@ def process_file(file_path):
         logger.info(f"Total records processed: {len(json_data)}")
         logger.info("File processing completed successfully")
 
-        return json_data
+        return json_data, extension in [".json"]
 
     except Exception as ex:
         logger.error(f"Error while processing file: {str(ex)}")
@@ -163,3 +163,5 @@ def _convert_dataframe_to_json(dataframe):
     except Exception as ex:
         logger.error(f"Error converting dataframe to JSON: {str(ex)}")
         raise
+
+

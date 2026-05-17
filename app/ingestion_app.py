@@ -6,10 +6,10 @@ from services.file_processor import process_file
 
 def run_ingestion(file_path):
     # Step 1: Read and Convert File
-    json_data = process_file(file_path)
+    json_data, isJSON = process_file(file_path)
     
     # Step 2: Save JSON Output
-    output_file = write_json(json_data)
+    output_file = write_json(json_data, skip=isJSON)
 
     # Step 3: Save into Database
     save_to_database(json_data)

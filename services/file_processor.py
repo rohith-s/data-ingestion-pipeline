@@ -2,6 +2,10 @@ import os
 import pandas as pd
 import json
 import logging
+
+from models.column_mapping import USER_INFORMATION_COLUMN_MAPPING
+from models.user_information_model import MANDATORY_FIELDS, USER_INFORMATION_COLUMNS
+
 logger = logging.getLogger(__name__)
 
 SUPPORTED_EXTENSIONS = [".xlsx", ".xls", ".csv", ".json"]
@@ -49,6 +53,13 @@ def process_file(file_path):
             logger.info("Unsupported File Format")
             raise ValueError(f"Unsupported file type: {extension}")
 
+        # IMPORTANT:
+        # Validate records here
+        _validate_records(json_data)
+
+        logger.info(
+            "Record validation completed successfully"
+        )
         logger.info(f"Total records processed: {len(json_data)}")
         logger.info("File processing completed successfully")
 
@@ -151,7 +162,27 @@ def _convert_dataframe_to_json(dataframe):
     """
     try:
         # Normaalize column names
-        dataframe.columns = [col.strip().lower() for col in dataframe.columns]
+        # dataframe.columns = [col.strip().lower() for col in dataframe.columns]
+        # Step 1 — Column Mapping
+        dataframe.columns = [
+            _standardize_column_name(col)
+            for col in dataframe.columns
+        ]
+        # Step 2 — Filter Allowed Columns
+        dataframe = dataframe[
+            [
+                col
+                for col in dataframe.columns
+                if col in USER_INFORMATION_COLUMNS
+            ]
+        ]
+        """
+        This:
+
+            removes unknown columns
+            protects DB layer
+            standardizes ingestion
+        """
 
         # Replace NaN values with None
         dataframe = dataframe.where(pd.notnull(dataframe), None)
@@ -165,3 +196,57 @@ def _convert_dataframe_to_json(dataframe):
         raise
 
 
+def _standardize_column_name(column_name):
+
+    normalized_column = (
+        column_name
+        .strip()
+        .lower()
+        .replace(" ", "")
+        .replace("_", "")
+    )
+
+    return USER_INFORMATION_COLUMN_MAPPING.get(
+        normalized_column,
+        normalized_column
+    )
+
+
+def _validate_records(json_data):
+    """
+    Validate mandatory fields
+    for all records.
+    """
+
+    try:
+
+        logger.info("Validating mandatory fields")
+
+        for index, record in enumerate(json_data, start=1):
+
+            for field in MANDATORY_FIELDS:
+
+                value = record.get(field)
+
+                if value is None:
+
+                    raise ValueError(
+                        f"Mandatory field "
+                        f"'{field}' missing "
+                        f"in record {index}"
+                    )
+
+                if isinstance(value, str):
+
+                    if value.strip() == "":
+
+                        raise ValueError(
+                            f"Mandatory field "
+                            f"'{field}' empty "
+                            f"in record {index}")
+
+        logger.info("Mandatory field validation successful")
+
+    except Exception as ex:
+        logger.error(f"Record validation failed: {str(ex)}")
+        raise
